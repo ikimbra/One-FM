@@ -29,7 +29,18 @@ frappe.ui.form.on('Job Opening', {
     if(!frm.doc.publish && frm.doc.allow_easy_apply){
       frm.set_value('allow_easy_apply', false);
     }
-  }
+  },
+	create_linked_in_job_post: function(frm) {
+		frappe.call({
+			method: 'one_fm.overrides.job_opening.create_linked_in_job_post',
+			args: {job_opening: frm.doc.name},
+			callback: function(r) {
+				frm.reload_doc();
+			},
+			freeze: true,
+			freeze_message: __("Creating Job Post in Linked In..!")
+		});
+	}
 });
 
 var validate_date = function(frm) {
