@@ -30,7 +30,7 @@ def create_new_post_schedules():
 
 def execute_post_creation():
 	"""
-		Get the list of projects with 0 Post Schedules  from the roster projection view report and Create the post schedules for projects with 0 
+		Get the list of projects with 0 Post Schedules  from the roster projection view report and Create the post schedules for projects with 0
 	"""
 	filters = frappe._dict({
 		'month':'06',
@@ -43,10 +43,10 @@ def execute_post_creation():
 			if each.ps_qty in [0.0,0]:
 				project_set.add(each.get('project'))
 		update_ops_post(project_set)
-		
-		
-	
-	
+
+
+
+
 
 def update_ops_post(projects):
 	try:
@@ -57,7 +57,7 @@ def update_ops_post(projects):
 			posts = [i.name for i in response]
 	except:
 		frappe.log_error("Post Schedule Creation Error",frappe.get_traceback())
-	
+
 	try:
 		for each in posts:
 			doc = frappe.get_doc("Operations Post",each)
@@ -94,13 +94,14 @@ class OperationsPost(Document):
 
 	def validate_operations_role_status(self):
 		if self.status == 'Active' and self.post_template \
-			and frappe.db.get_value('Operations Role', self.post_template, 'is_active') != 1:
+			and frappe.db.get_value('Operations Role', self.post_template, 'status') != "Active":
+			# Operations role have staus field
 			frappe.throw(_("The Operations Role <br/>'<b>{0}</b>' selected in the Post '<b>{1}</b>' is <b>Inactive</b>. <br/> To make the Post atcive first make the Role active".format(self.post_template, self.name)))
 
 	def on_update(self):
 		self.validate_name()
 		self.update_operation_roles()
-		
+
 
 	def validate_name(self):
 		condition = self.post_name+"-"+self.gender+"|"+self.site_shift
