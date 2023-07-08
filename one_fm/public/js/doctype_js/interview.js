@@ -31,6 +31,13 @@ frappe.ui.form.on('Interview', {
 				});
 			}
 		}
+		frm.set_query('interviewer', 'interview_details', () => {
+			return {
+				filters: {
+					enabled: 1
+				}
+			}
+		})
 	},
 	show_custom_feedback_dialog: function (frm, data, question_data, feedback_exists) {
 		let fields = frm.events.get_fields_for_feedback();
@@ -143,6 +150,7 @@ frappe.ui.form.on('Interview', {
 		}];
 
 	},
+	
 });
 
 var create_interview_feedback = function(frm, values, feedback_exists, save_submit) {
@@ -163,3 +171,6 @@ var create_interview_feedback = function(frm, values, feedback_exists, save_subm
 		frm.refresh();
 	});
 }
+
+
+

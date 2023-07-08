@@ -9,5 +9,16 @@ frappe.ui.form.on('Interview Feedback', {
 				frm.set_value('interview_question_assessment', r.message);
 			}
 		});
+		
 	},
+	onload: function(frm){
+		console.log("hey")
+		frm.set_query('interviewer', () => {
+			return {
+				filters: {
+					"enabled": True
+				}
+			}
+		})
+	}
 });
