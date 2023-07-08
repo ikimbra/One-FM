@@ -11,14 +11,4 @@ frappe.ui.form.on('Interview Feedback', {
 		});
 		
 	},
-	onload: function(frm){
-		console.log("hey")
-		frm.set_query('interviewer', () => {
-			return {
-				filters: {
-					"enabled": True
-				}
-			}
-		})
-	}
 });
