@@ -9,6 +9,5 @@ frappe.ui.form.on('Interview Feedback', {
 				frm.set_value('interview_question_assessment', r.message);
 			}
 		});
-		
 	},
 });
