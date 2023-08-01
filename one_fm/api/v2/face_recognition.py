@@ -1,7 +1,6 @@
 from datetime import timedelta, datetime
 import frappe, ast, base64, time, grpc, json, random
 from frappe import _
-from one_fm.one_fm.page.face_recognition.face_recognition import update_onboarding_employee, check_existing
 from one_fm.api.v1.roster import get_current_shift
 from one_fm.api.v1.utils import response
 from one_fm.api.v2.zenquotes import fetch_quote
@@ -10,6 +9,7 @@ from frappe.utils import cstr, getdate,get_datetime,now,get_date_str, now_dateti
 from one_fm.proto import facial_recognition_pb2, facial_recognition_pb2_grpc, enroll_pb2, enroll_pb2_grpc
 from one_fm.api.doc_events import haversine
 from one_fm.utils import get_holiday_today
+from one_fm.one_fm.page.face_recognition.utils import check_existing, update_onboarding_employee, late_checkin_checker
 
 
 # setup channel for face recognition
@@ -393,9 +393,3 @@ def get_site_location(employee_id: str = None, latitude: float = None, longitude
     except Exception as error:
 
         return response("Internal Server Error", 500, None, frappe.get_traceback())
-
-
-def late_checkin_checker(doc, val_in_shift_type, existing_perm=None):
-    if doc.time.time() > datetime.strptime(str(val_in_shift_type["start_time"] + timedelta(minutes=val_in_shift_type["late_entry_grace_period"])), "%H:%M:%S").time():
-        if not existing_perm:
-            return True

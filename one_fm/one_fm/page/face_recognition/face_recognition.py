@@ -15,7 +15,8 @@ import json
 from one_fm.api.doc_events import haversine
 from one_fm.api.v1.roster import get_current_shift
 
-
+from one_fm.one_fm.page.face_recognition.utils import check_existing, update_onboarding_employee, late_checkin_checker
+from one_fm.api.v2.zenquotes import fetch_quote
 
 # setup channel for face recognition
 face_recognition_service_url = frappe.local.conf.face_recognition_service_url

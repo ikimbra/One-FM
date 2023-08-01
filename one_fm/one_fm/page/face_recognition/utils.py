@@ -59,3 +59,8 @@ def update_onboarding_employee(employee):
         onboard_employee.enrolled_on = now_datetime()
         onboard_employee.save(ignore_permissions=True)
         frappe.db.commit()
+
+def late_checkin_checker(doc, val_in_shift_type, existing_perm=None):
+    if doc.time.time() > datetime.strptime(str(val_in_shift_type["start_time"] + timedelta(minutes=val_in_shift_type["late_entry_grace_period"])), "%H:%M:%S").time():
+        if not existing_perm:
+            return True
