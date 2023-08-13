@@ -1141,7 +1141,7 @@ let attendance_abbr_map = {
 	'Absent': 'A',
 	'Work From Home': 'WFH',
 	'Half Day': 'HD',
-	"Holiday":"H",
+	"Holiday":"HO",
 	'On Leave': 'OL'
 };
 // Renders on get_roster_data function

@@ -1,6 +1,6 @@
 import frappe,time
 import pandas as pd
-from frappe.utils import nowdate, add_to_date, cstr, cint, getdate
+from frappe.utils import nowdate, add_to_date, cstr, cint, getdate,get_date_str
 
 
 
@@ -143,6 +143,7 @@ class CreateMap():
         self.all_employees = employees
         self.str_filter = filters
         self.isOt = isOt
+        self.def_holiday_list = frappe.get_value("Company",frappe.defaults.get_defaults()['company'],'default_holiday_list')
         self.roster_type = "Over-Time" if isOt else "Basic"
         if self.isOt:
             self.str_filter+=' and es.roster_type = "Over-Time"'
@@ -166,6 +167,12 @@ class CreateMap():
                 es.shift, es.roster_type, es.employee_availability, es.day_off_ot, es.project from `tabEmployee Schedule`es  where \
                     es.employee in {self.employees} and {self.str_filter}   order by es.employee "
             self.attendance_query = f"SELECT at.status,at.leave_type,at.leave_application, at.attendance_date,at.employee,at.employee_name, at.operations_shift from `tabAttendance`at where at.employee in {self.employees}  and at.attendance_date between '{self.start}' and '{self.end}' and at.docstatus = 1 AND at.roster_type='{self.roster_type}' order by at.employee "
+            # self.attendance_query = f"""SELECT hols.weekly_off, at.status,at.leave_type,at.leave_application, at.attendance_date,
+            # at.employee,at.employee_name, at.operations_shift from `tabAttendance`at,`tabHoliday`hols 
+            # where at.employee in {self.employees} and hols.parent = '{self.def_holiday_list}'  and at.attendance_date between 
+            # '{self.start}' and '{self.end}' and at.docstatus = 1 and hols.holiday_date between '{self.start}' and '{self.end}'
+           
+            # AND at.roster_type='{self.roster_type}' order by at.employee,at.attendance_date """
             
             self.employee_query = f"SELECT name, employee_id,relieving_date, employee_name,day_off_category,number_of_days_off from `tabEmployee` where name in {self.employees} order by employee_name"
 
@@ -192,6 +199,7 @@ class CreateMap():
         #Combine both the attenance and schedule maps,
         self.combined_map = list(map(self.combine_maps,self.att_map,self.sch_map))
         #Add missing  calendar days 
+        self.date_map = self.create_date_map()
         res=list(map(self.add_blank_days,iter(self.date_range)))
 
     def add_blanks(self,emp_dict):
@@ -214,6 +222,7 @@ class CreateMap():
                     'employee_id':self.employee_period_details[key]['employee_id'],
                     'employee_name':self.employee_period_details[key]['employee_name'],
                     'date':self.cur_date,
+                    'public_holiday':int(self.cur_date in self.date_map),
                     'relieving_date':self.employee_period_details[key]['relieving_date'],
                     'day_off_category': self.employee_period_details[key]['day_off_category'],
                     'number_of_days_off': self.employee_period_details[key]['number_of_days_off']
@@ -227,6 +236,7 @@ class CreateMap():
                 if self.formated_rs.get(emp_name):
                     # if key not in self.merged_employees:
                     month_data = attendance_schedule_for_day[0]
+                    month_data['public_holiday'] = int(self.cur_date in self.date_map)
                     #Add Day Off OT from Attendance, Doing this from the initial query takes too long
                     if len(attendance_schedule_for_day) >1:
                         # month_data['day_off_ot'] = attendance_schedule_for_day[1]['day_off_ot']
@@ -236,10 +246,12 @@ class CreateMap():
                 else:
                     #When an employee has both attendance and employee schedule records the attendance is selected.
                     month_data = attendance_schedule_for_day[0]
+                    month_data['public_holiday'] = int(self.cur_date in self.date_map)
                     #Add Day Off OT from Attendance
                     if len(attendance_schedule_for_day) >1:
                         # The Employee schedule is always the last in the list
-                        month_data['day_off_ot'] = attendance_schedule_for_day[-1].get('day_off_ot')
+                        month_data['day_off_ot'] = attendance_schedule_for_day[-1].get('day_off_ot',0)
+                    
                     self.formated_rs[emp_name] = [month_data]
         except KeyError :
             pass
@@ -248,12 +260,11 @@ class CreateMap():
 
     
 
-    def create_missing_days(self,key):
-        missing_days = []
-            
-        return self.formated_rs
-
-
+    def create_date_map(self):
+        holidays = frappe.db.sql(f"Select holiday_date from `tabHoliday` where parent = '{self.def_holiday_list}' and weekly_off = 1",as_dict=1)
+        holiday_list = [get_date_str(getdate(i.holiday_date)) for i in holidays]
+        return holiday_list
+        
     def add_blank_days(self,date):
         self.cur_date = cstr(date).split(' ')[0]
         self.meme =  list(map(self.add_blanks,self.combined_map))
@@ -296,6 +307,7 @@ class CreateMap():
                     'day_off_category': self.employee_period_details[row[0]].get('day_off_category'),
                     'number_of_days_off': self.employee_period_details[row[0]].get('number_of_days_off'),
                     'shift': one.operations_shift,
+                    'weekly_off':one.weekly_off,
                     'employee_id': self.employee_period_details[row[0]].get('employee_id')
                 })
         except Exception as e:
