@@ -19,7 +19,7 @@ $(document).ready(function() {
       setupReader(value, file_input);
     });
     window.file_reading = false;
-     
+
   });
 });
 var rotation_shift = $("#work_details").attr("rotation_shift")
@@ -77,7 +77,7 @@ job_application = Class.extend({
   },
   show_applicant_contact_details: function() {
     $(".applicant_contact").empty();
-    $(".applicant_contact").append(`<h5>Please provide your email address and mobile number so we could contact you.</h5>`)
+    $(".applicant_contact").append(`<h5>Please provide your mobile number and email address so we could contact you.</h5>`);
     $(".contact_number").removeClass('hide');
     $(".contact_email").removeClass('hide');
   },
@@ -101,7 +101,7 @@ job_application = Class.extend({
           // Show CV section
           me.show_cv_section();
       }
-      
+
     }
   },
   on_change_email: function() {
@@ -223,16 +223,16 @@ job_application = Class.extend({
 
       var cv = document.getElementById("cv").files[0]
       if (cv && !cv.type.includes(["application/pdf"])){
-        return frappe.msgprint(frappe._("CV must be in PDF format !"));      
+        return frappe.msgprint(frappe._("CV must be in PDF format !"));
       }
 
       // POST Job Application if all the conditions are satisfied
-      
+
       if ($(".applicant_name").val() && $(".country_list").val() && $(".contact_email").val() && $(".contact_number").val() && cv){
         frappe.freeze();
         var response = await upload_image_to_server(cv)
         var url = (response && response.message) ? response.message.file_url : "";
-        var name_of_file = (response && response.message) ? response.message.name : ""; 
+        var name_of_file = (response && response.message) ? response.message.name : "";
 
         frappe.call({
           type: "POST",
@@ -308,4 +308,3 @@ async function upload_image_to_server(file) {
     xhr.send(form_data);
   });
 }
-
