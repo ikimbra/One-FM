@@ -1,4 +1,5 @@
 datefinder
+gspread
 mindee
 deep-translator==1.11.4
 gpt-index==0.4.15
