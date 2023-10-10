@@ -400,14 +400,22 @@ def mark_overtime_attendance(from_date, to_date):
         mark_for_shift_assignment(employee, from_date, roster_type='Over-Time')
 
 
-def mark_day_attendance():
+def mark_day_attendance1():
     from one_fm.operations.doctype.shift_permission.shift_permission import approve_open_shift_permission
-    start_date, end_date = add_days(getdate(), -1), add_days(getdate(), -1)
+    start_date, end_date = add_days(getdate(), -33), add_days(getdate(), -32)
     approve_open_shift_permission(str(start_date), str(end_date))
     approve_open_employee_checkin_issue(str(start_date), str(end_date))
     frappe.enqueue(mark_open_timesheet_and_create_attendance)
-    frappe.enqueue(mark_daily_attendance, start_date=start_date, end_date=end_date, timeout=4000, queue='long')
+    # frappe.enqueue(mark_daily_attendance, start_date=start_date, end_date=end_date, timeout=6000, queue='long')
+    mark_daily_attendance(start_date, end_date)
 
+def mark_day_attendance2():
+    from one_fm.operations.doctype.shift_permission.shift_permission import approve_open_shift_permission
+    start_date, end_date = add_days(getdate(), -20), add_days(getdate(), -4)
+    approve_open_shift_permission(str(start_date), str(end_date))
+    approve_open_employee_checkin_issue(str(start_date), str(end_date))
+    frappe.enqueue(mark_open_timesheet_and_create_attendance)
+    frappe.enqueue(mark_daily_attendance, start_date=start_date, end_date=end_date, timeout=6000, queue='long')
 
 def mark_night_attendance():
 	from one_fm.operations.doctype.shift_permission.shift_permission import approve_open_shift_permission
@@ -455,7 +463,7 @@ def mark_daily_attendance(start_date, end_date):
         'date':["BETWEEN", [start_date, end_date]],
         'roster_type':'Basic'
     }, fields="*")
-    print(basic_attendance_employees)
+
     basic_employee_schedules = [i for i in basic_employee_schedules if not i.employee in basic_attendance_employees]
     
     # Mark Holiday Attendance
@@ -846,3 +854,147 @@ def mark_open_timesheet_and_create_attendance():
         comment.insert(ignore_permissions=True)
         doc = frappe.get_doc("Timesheet", name )
         doc.create_attendance()
+
+def att_del():
+    da = frappe.db.sql("""DELETE from `tabAttendance` WHERE attendance_date between '2023-09-01' AND '2023-09-30'""")
+
+# def att_from_att_check():
+#     start_date, end_date = add_days(getdate(), -33), add_days(getdate(), -4)
+#     frappe.enqueue(mark_from_attendance_check, start_date=start_date, end_date=end_date, timeout=4000, queue='long')
+
+def mark_from_attendance_request():
+    creation = now()
+    owner = frappe.session.user
+    naming_series = 'HR-ATT-.YYYY.-'
+    start_date, end_date = add_days(getdate(), -38), add_days(getdate(), -9)
+    attendance_request = frappe.db.sql(f"""SELECT * from `tabAttendance Request` 
+                WHERE from_date between '{start_date}' AND '{end_date}' 
+                AND workflow_state='Approved'""", as_dict=1)
+    print(attendance_request)
+    query = """
+        INSERT INTO `tabAttendance` (`name`, `naming_series`,`employee`, `employee_name`, `working_hours`, `status`, `shift`, `in_time`, `out_time`,
+        `shift_assignment`, `operations_shift`, `site`, `project`, `attendance_date`, `company`,
+        `department`, `late_entry`, `early_exit`, `operations_role`, `post_abbrv`, `roster_type`, `docstatus`, `modified_by`, `owner`,
+        `creation`, `modified`, `comment`)
+        VALUES
+
+    """
+    query_body = """"""
+    employees = frappe.get_all("Employee", fields="*")
+    count_att = 0
+    
+    for att_request in attendance_request:
+        if att_request.reason == "Work From Home":
+            status = "Work From Home"
+        else:
+            status = "Present"
+        print(att_request.from_date, att_request.to_date)
+        attendance = frappe.db.sql(f"""SELECT * from `tabAttendance` WHERE employee = '{att_request.employee}' AND attendance_date BETWEEN '{att_request.from_date}' AND '{att_request.to_date}'""", as_dict=1)
+       
+        if attendance:
+            for att in attendance:
+                doc = frappe.get_doc("Attendance",att.name)
+                doc.db_set('status' , status)
+                frappe.db.commit()
+        else:
+            shift_assignment = frappe.db.sql(f"""SELECT * from `tabShift Assignment` WHERE employee = '{att_request.employee}' AND start_date ='{att_request.from_date}'""", as_dict=1)
+            print("shift_assignment", shift_assignment)
+            if shift_assignment:
+                for s in shift_assignment:
+                    if frappe.db.exists("Shift Assignment", {'name':s.name}):
+                        shift_ass = frappe.get_doc("Shift Assignment", {'name':s.name})
+                        roster_type = 'Basic'
+                        
+                        name = f"HR-ATT_{start_date}_{att_request.employee}_{roster_type}"
+                        query_body+= f"""
+                        (
+                            "{name}", "{naming_series}", "{att_request.employee}", "{att_request.employee_name or ''}", "8", "{status}", '{shift_ass.shift_type}', NULL,
+                            NULL, "{shift_ass.name}", "{shift_ass.shift}", "{shift_ass.site}", "{shift_ass.project}", "{att.date}", "{shift_ass.company}",
+                            "{att_request.department}", 0, 0, "{shift_ass.operations_role}", "{shift_ass.post_abbrv}", "{shift_ass.roster_type}", {1}, "{owner}",
+                            "{owner}", "{creation}", "{creation}", "{att.justification or ''}"
+                        ),"""
+                        count_att = count_att + 1
+            else:
+                name = f"HR-ATT_{start_date}_{att_request.employee}"
+                roster_type = 'Basic'
+                query_body+= f"""
+                (
+                    "{name}", "{naming_series}", "{att_request.employee}", "{att_request.employee_name or ''}", "8", "{status}", '', NULL,
+                    NULL, "", "", "", "", "{att_request.from_date}", "",
+                    "{att_request.department}", 0, 0, "", "", "{roster_type}", {1}, "{owner}",
+                    "{owner}", "{creation}", "{creation}", "{att_request.reason or ''}"
+                ),"""
+                count_att = count_att + 1
+    print(count_att)
+    print(query_body)
+    # UPDATE QUERY
+    if query_body:
+        query += query_body[:-1]
+        query += f"""
+            ON DUPLICATE KEY UPDATE
+            naming_series = VALUES(naming_series),
+            employee = VALUES(employee),
+            employee_name = VALUES(employee_name),
+            working_hours = VALUES(working_hours),
+            status = VALUES(status),
+            shift = VALUES(shift),
+            in_time = VALUES(in_time),
+            out_time = VALUES(out_time),
+            shift_assignment = VALUES(shift_assignment),
+            operations_shift = VALUES(operations_shift),
+            site = VALUES(site),
+            project = VALUES(project),
+            attendance_date = VALUES(attendance_date),
+            company = VALUES(company),
+            department = VALUES(department),
+            late_entry = VALUES(late_entry),
+            early_exit = VALUES(early_exit),
+            operations_role = VALUES(operations_role),
+            roster_type = VALUES(roster_type),
+            docstatus = VALUES(docstatus),
+            modified_by = VALUES(modified_by),
+            modified = VALUES(modified)
+        """ 
+        frappe.db.sql(query, values=[], as_dict=1)
+        frappe.db.commit()
+                
+def del_att():
+    import pandas as pd
+
+    start_date, end_date = add_days(getdate(), -39), add_days(getdate(), -36)
+
+    # dup_attendance = frappe.db.sql("""DELETE from `tabAttendance`
+    #                                 INNER JOIN 
+    #                                 (SELECT name, ROW_NUMBER()
+    #                                     OVER (
+    #                                         PARTITION BY a.employee, a.attendance_date, a.roster_type
+    #                                         ORDER BY a.employee, a.attendance_date, a.roster_type
+    #                                     ) AS row_number
+    #                                     FROM `tabAttendance` a
+    #                                     GROUP BY employee, attendance_date, roster_type
+    #                                 ) dup
+    #                                 ON a.name = dup.name
+    #                                 WHERE dup.row_number > 1""")
+
+    dup = frappe.db.sql(f"""SELECT
+                name, employee, attendance_date,roster_type, COUNT(*)
+                FROM `tabAttendance` 
+                WHERE attendance_date BETWEEN '{start_date}' AND '{end_date}'
+                GROUP BY
+                employee, attendance_date, roster_type
+                HAVING COUNT(*) > 1""", as_dict=1)
+    print(len(dup))
+    dup_list = []
+    for d in dup:
+        if d.name not in dup_list:
+            dup_in_list = frappe.get_list("Attendance", { 'employee':d.employee, 'attendance_date':d.attendance_date,'roster_type':d.roster_type}, ['name','modified'], order_by='modified desc')
+            if len(dup_in_list)==2:
+                if dup_in_list[0].modified>dup_in_list[1].modified:
+                    dup_list.append(dup_in_list[1].name)
+                else:
+                    dup_list.append(dup_in_list[0].name)
+    print(dup_list)
+    dup_list = tuple(dup_list)
+    print(dup_list)
+    frappe.db.sql(f"""DELETE from `tabAttendance` WHERE name IN {dup_list}""")
+    frappe.db.commit()
