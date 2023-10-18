@@ -86,7 +86,6 @@ frappe.ui.form.on('Warehouse', {
 
 });
 
-
 var unsetCustomer = frm => {
   frm.set_query('one_fm_project', function () {
     return {
